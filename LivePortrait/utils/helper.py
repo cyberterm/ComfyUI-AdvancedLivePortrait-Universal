@@ -65,9 +65,10 @@ def squeeze_tensor_to_numpy(tensor):
     return out
 
 
-def dct2cuda(dct: dict, device_id: int):
+def dct2cuda(dct: dict, device_id):
+    device = device_id if isinstance(device_id, torch.device) else (torch.device(device_id) if isinstance(device_id, str) else torch.device(f"cuda:{device_id}"))
     for key in dct:
-        dct[key] = torch.tensor(dct[key]).cuda(device_id)
+        dct[key] = torch.tensor(dct[key]).to(device)
     return dct
 
 

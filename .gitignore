@@ -1,2 +1,24 @@
-__pycache__
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE and editors
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Model weights / checkpoints
+*.pt
+*.pth
+*.safetensors
+*.bin
+*.onnx
+
+# ComfyUI tracking
+.tracking
 .idea

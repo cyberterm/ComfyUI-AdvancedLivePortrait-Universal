@@ -6,6 +6,7 @@ import cv2
 from PIL import Image
 import folder_paths
 import comfy.utils
+import comfy.model_management
 import time
 import copy
 import dill
@@ -26,20 +27,12 @@ from .LivePortrait.modules.appearance_feature_extractor import AppearanceFeature
 from .LivePortrait.modules.stitching_retargeting_network import StitchingRetargetingNetwork
 from collections import OrderedDict
 
-cur_device = None
-def get_device():
-    global cur_device
-    if cur_device == None:
-        if torch.cuda.is_available():
-            cur_device = torch.device('cuda')
-            print("Uses CUDA device.")
-        elif torch.backends.mps.is_available():
-            cur_device = torch.device('mps')
-            print("Uses MPS device.")
-        else:
-            cur_device = torch.device('cpu')
-            print("Uses CPU device.")
-    return cur_device
+def get_device(preference="auto"):
+    if 'g_engine' in globals() and g_engine is not None:
+        return g_engine.get_device(preference)
+    if preference == "cpu":
+        return torch.device("cpu")
+    return comfy.model_management.get_torch_device()
 
 def tensor2pil(image):
     return Image.fromarray(np.clip(255. * image.cpu().numpy().squeeze(), 0, 255).astype(np.uint8))
@@ -98,6 +91,26 @@ class LP_Engine:
     detect_model = None
     mask_img = None
     temp_img_idx = 0
+    cur_device = None
+
+    def get_device(self, preference="auto"):
+        if preference == "cpu":
+            target = torch.device("cpu")
+        else:
+            target = comfy.model_management.get_torch_device()
+
+        if self.cur_device is None:
+            self.cur_device = target
+        elif self.cur_device != target:
+            self.cur_device = target
+            if self.pipeline is not None:
+                self.pipeline.appearance_feature_extractor.to(target)
+                self.pipeline.motion_extractor.to(target)
+                self.pipeline.warping_module.to(target)
+                self.pipeline.spade_generator.to(target)
+                if self.pipeline.stitching_retargeting_module is not None:
+                    self.pipeline.stitching_retargeting_module['stitching'].to(target)
+        return self.cur_device
 
     def get_temp_img_name(self):
         self.temp_img_idx += 1
@@ -485,7 +498,7 @@ class ExpressionSet:
             self.s = erst[2]
             self.t = erst[3]
         else:
-            self.e = torch.from_numpy(np.zeros((1, 21, 3))).float().to(get_device())
+            self.e = torch.zeros((1, 21, 3), dtype=torch.float32, device=get_device())
             self.r = torch.Tensor([0, 0, 0])
             self.s = 0
             self.t = 0
@@ -671,6 +684,7 @@ class AdvancedLivePortrait:
                 "tracking_src_vid": ("BOOLEAN", {"default": False}),
                 "animate_without_vid": ("BOOLEAN", {"default": False}),
                 "command": ("STRING", {"multiline": True, "default": ""}),
+                "device": (["auto", "cpu"], {"default": "auto"}),
             },
             "optional": {
                 "src_images": ("IMAGE",),
@@ -724,8 +738,9 @@ class AdvancedLivePortrait:
 
 
     def run(self, retargeting_eyes, retargeting_mouth, turn_on, tracking_src_vid, animate_without_vid, command, crop_factor,
-            src_images=None, driving_images=None, motion_link=None):
+            src_images=None, driving_images=None, motion_link=None, device="auto"):
         if turn_on == False: return (None,None)
+        g_engine.get_device(device)
         src_length = 1
 
         if src_images == None:
@@ -862,6 +877,7 @@ class ExpressionEditor:
                 "sample_parts": (["OnlyExpression", "OnlyRotation", "OnlyMouth", "OnlyEyes", "All"],),
                 "crop_factor": ("FLOAT", {"default": crop_factor_default,
                                           "min": crop_factor_min, "max": crop_factor_max, "step": 0.1}),
+                "device": (["auto", "cpu"], {"default": "auto"}),
             },
 
             "optional": {"src_image": ("IMAGE",), "motion_link": ("EDITOR_LINK",),
@@ -882,8 +898,9 @@ class ExpressionEditor:
     # OUTPUT_IS_LIST = (False,)
 
     def run(self, rotate_pitch, rotate_yaw, rotate_roll, blink, eyebrow, wink, pupil_x, pupil_y, aaa, eee, woo, smile,
-            src_ratio, sample_ratio, sample_parts, crop_factor, src_image=None, sample_image=None, motion_link=None, add_exp=None):
+            src_ratio, sample_ratio, sample_parts, crop_factor, src_image=None, sample_image=None, motion_link=None, add_exp=None, device="auto"):
         rotate_yaw = -rotate_yaw
+        g_engine.get_device(device)
 
         new_editor_link = None
         if motion_link != None:
