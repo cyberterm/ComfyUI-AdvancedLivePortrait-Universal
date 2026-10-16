@@ -1,6 +1,6 @@
-# ComfyUI-AdvancedLivePortrait (Universal Support Fork)
+# ComfyUI-AdvancedLivePortrait (Universal Edition)
 
-> Advanced LivePortrait with interactive facial expression editor, animation chaining, and real-time preview — engineered for native cross-platform execution.
+> ⚠️ **Maintained Fork Notice:** This is a maintained community edition of the original [PowerHouseMan/ComfyUI-AdvancedLivePortrait](https://github.com/PowerHouseMan/ComfyUI-AdvancedLivePortrait). This fork brings native multi-device acceleration (Intel XPU, Apple Silicon MPS, AMD ROCm, NVIDIA CUDA, and CPU) via ComfyUI model management.
 
 ### 🌐 Universal Device & Hardware Support
 Unlike the original CUDA-only implementation, this fork integrates seamlessly with ComfyUI's native device management:
